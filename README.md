@@ -26,7 +26,7 @@ Antes de comenzar, asegúrate de tener instaladas las siguientes herramientas:
 ## 2. Clonar el Repositorio
 
 ```bash
-git clone https://github.com/1ASI0572-2610-17755-G4-DispenXCore/DispenXCore-Mobil-FrontEnd.git
+git clone https://github.com/1ASI0572-2610-17755-G4-DispenXCore/DispenXCore-Mobile-FrontEnd.git
 cd dispensxcore
 ```
 
