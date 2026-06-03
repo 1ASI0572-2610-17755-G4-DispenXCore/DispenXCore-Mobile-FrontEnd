@@ -2,11 +2,16 @@ import 'package:dispenxcore_frontend/core/api/api_client.dart';
 import 'package:dispenxcore_frontend/core/constants.dart';
 import 'package:dispenxcore_frontend/core/storage/token_storage.dart';
 import 'package:dispenxcore_frontend/core/storage/token_storage_impl.dart';
+import 'package:dispenxcore_frontend/features/alerts/data/repositories/alerts_repository_impl.dart';
+import 'package:dispenxcore_frontend/features/alerts/domain/repositories/alerts_repository.dart';
 import 'package:dispenxcore_frontend/features/auth/data/datasources/auth_remote_data_source.dart';
 import 'package:dispenxcore_frontend/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:dispenxcore_frontend/features/auth/domain/repositories/auth_repository.dart';
 import 'package:dispenxcore_frontend/features/auth/domain/usecases/login_user.dart';
 import 'package:dispenxcore_frontend/features/auth/domain/usecases/register_user.dart';
+
+import '../../features/alerts/data/datasources/alerts_remote_data_source.dart';
+import '../../features/alerts/domain/usecases/get_active_alerts.dart';
  
 // Infraestructura base
 final TokenStorage tokenStorage = TokenStorageImpl();
@@ -24,9 +29,14 @@ final AuthRepository authRepository = AuthRepositoryImpl(
   remoteDataSource: _authRemoteDataSource,
   tokenStorage: tokenStorage,
 );
+
+final AlertsRemoteDataSource remoteDataSource = AlertsRemoteDataSourceImpl(apiClient: apiClient);
+
+final AlertsRepository alertsRepository = AlertsRepositoryImpl(remoteDataSource: remoteDataSource);
  
 final LoginUser loginUserUseCase = LoginUser(authRepository);
 final RegisterUser registerUserUseCase = RegisterUser(authRepository);
+final GetActiveAlerts getActiveAlertsUseCase = GetActiveAlerts(alertsRepository);
  
 T injector<T>() {
   if (T == TokenStorage) return tokenStorage as T;
@@ -34,6 +44,8 @@ T injector<T>() {
   if (T == AuthRepository) return authRepository as T;
   if (T == LoginUser) return loginUserUseCase as T;
   if (T == RegisterUser) return registerUserUseCase as T;
+  if (T == AlertsRepository) return alertsRepository as T;
+  if (T == GetActiveAlerts) return getActiveAlertsUseCase as T;
  
   throw Exception('Dependencia no registrada: $T');
 }
