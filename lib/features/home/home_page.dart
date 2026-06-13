@@ -261,7 +261,7 @@ class HomePage extends StatelessWidget {
       ),
     );
   }
-
+//default
   Widget _activityItem({
     required IconData icon,
     required String title,
