@@ -11,6 +11,17 @@ import 'package:dispenxcore_frontend/features/auth/data/repositories/auth_reposi
 import 'package:dispenxcore_frontend/features/auth/domain/repositories/auth_repository.dart';
 import 'package:dispenxcore_frontend/features/auth/domain/usecases/login_user.dart';
 import 'package:dispenxcore_frontend/features/auth/domain/usecases/register_user.dart';
+import 'package:dispenxcore_frontend/features/device/data/datasources/device_remote_data_source.dart';
+import 'package:dispenxcore_frontend/features/device/data/repositories/device_repository_impl.dart';
+import 'package:dispenxcore_frontend/features/device/domain/repositories/device_repository.dart';
+import 'package:dispenxcore_frontend/features/device/domain/usecases/get_device.dart';
+import 'package:dispenxcore_frontend/features/device/domain/usecases/ping_device.dart';
+import 'package:dispenxcore_frontend/features/device/domain/usecases/update_device.dart';
+import 'package:dispenxcore_frontend/features/dispensators/data/datasources/dispensator_remote_data_source.dart';
+import 'package:dispenxcore_frontend/features/dispensators/data/repositories/dispensator_repository_impl.dart';
+import 'package:dispenxcore_frontend/features/dispensators/domain/repositories/dispensator_repository.dart';
+import 'package:dispenxcore_frontend/features/dispensators/domain/usecases/get_dispensator_detail.dart';
+import 'package:dispenxcore_frontend/features/dispensators/domain/usecases/get_dispensators.dart';
 import 'package:dispenxcore_frontend/features/users/data/datasources/user_remote_data_source.dart';
 import 'package:dispenxcore_frontend/features/users/data/repositories/user_repository_impl.dart';
 import 'package:dispenxcore_frontend/features/users/domain/repositories/user_repository.dart';
@@ -49,6 +60,20 @@ final UserRemoteDataSource _userRemoteDataSource =
 final UserRepository userRepository =
     UserRepositoryImpl(remoteDataSource: _userRemoteDataSource);
 
+// Dispensators
+final DispensatorRemoteDataSource _dispensatorRemoteDataSource =
+    DispensatorRemoteDataSource(apiClient: apiClient);
+
+final DispensatorRepository dispensatorRepository =
+    DispensatorRepositoryImpl(remoteDataSource: _dispensatorRemoteDataSource);
+
+// Device
+final DeviceRemoteDataSource _deviceRemoteDataSource =
+    DeviceRemoteDataSource(apiClient: apiClient);
+
+final DeviceRepository deviceRepository =
+    DeviceRepositoryImpl(remoteDataSource: _deviceRemoteDataSource);
+
 // Use cases
 final LoginUser loginUserUseCase = LoginUser(authRepository);
 final RegisterUser registerUserUseCase = RegisterUser(authRepository);
@@ -57,6 +82,13 @@ final GetCurrentUser getCurrentUserUseCase =
     GetCurrentUser(userRepository, tokenStorage);
 final UpdateUser updateUserUseCase = UpdateUser(userRepository);
 final ChangePassword changePasswordUseCase = ChangePassword(userRepository);
+final GetDispensators getDispensatorsUseCase =
+    GetDispensators(dispensatorRepository);
+final GetDispensatorDetail getDispensatorDetailUseCase =
+    GetDispensatorDetail(dispensatorRepository);
+final GetDevice getDeviceUseCase = GetDevice(deviceRepository);
+final UpdateDevice updateDeviceUseCase = UpdateDevice(deviceRepository);
+final PingDevice pingDeviceUseCase = PingDevice(deviceRepository);
 
 T injector<T>() {
   if (T == TokenStorage) return tokenStorage as T;
@@ -70,6 +102,13 @@ T injector<T>() {
   if (T == GetCurrentUser) return getCurrentUserUseCase as T;
   if (T == UpdateUser) return updateUserUseCase as T;
   if (T == ChangePassword) return changePasswordUseCase as T;
+  if (T == DispensatorRepository) return dispensatorRepository as T;
+  if (T == GetDispensators) return getDispensatorsUseCase as T;
+  if (T == GetDispensatorDetail) return getDispensatorDetailUseCase as T;
+  if (T == DeviceRepository) return deviceRepository as T;
+  if (T == GetDevice) return getDeviceUseCase as T;
+  if (T == UpdateDevice) return updateDeviceUseCase as T;
+  if (T == PingDevice) return pingDeviceUseCase as T;
 
   throw Exception('Dependencia no registrada: $T');
 }

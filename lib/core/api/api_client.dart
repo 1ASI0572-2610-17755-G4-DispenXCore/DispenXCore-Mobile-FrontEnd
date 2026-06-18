@@ -77,7 +77,9 @@ class ApiClient {
         )
         .timeout(const Duration(seconds: 60));
 
+    if (response.statusCode == HttpStatus.noContent) return {};
     if (response.statusCode == HttpStatus.ok || response.statusCode == HttpStatus.created) {
+      if (response.body.isEmpty) return {};
       final decoded = jsonDecode(response.body);
       if (decoded is Map<String, dynamic>) return decoded;
       throw const FormatException('Se esperaba un objeto JSON en la respuesta.');
