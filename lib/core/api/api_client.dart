@@ -52,13 +52,13 @@ class ApiClient {
  
     final response = await http
         .get(uri, headers: await _getHeaders(requiresAuth: requiresAuth, customHeaders: headers))
-        .timeout(const Duration(seconds: 30));
- 
+        .timeout(const Duration(seconds: 60));
+
     if (response.statusCode == HttpStatus.ok) {
       return jsonDecode(response.body);
     }
- 
-    throw HttpException('Error ${response.statusCode}: ${response.reasonPhrase}');
+
+    throw Exception(_extractErrorMessage(response));
   }
  
   Future<Map<String, dynamic>> post(
@@ -110,14 +110,14 @@ class ApiClient {
           headers: await _getHeaders(requiresAuth: requiresAuth, customHeaders: headers),
           body: body != null ? jsonEncode(body) : null,
         )
-        .timeout(const Duration(seconds: 30));
- 
+        .timeout(const Duration(seconds: 60));
+
     if (response.statusCode == HttpStatus.ok || response.statusCode == HttpStatus.noContent) {
       if (response.body.isEmpty) return true;
       return jsonDecode(response.body);
     }
- 
-    throw HttpException('Error ${response.statusCode}: ${response.reasonPhrase}');
+
+    throw Exception(_extractErrorMessage(response));
   }
  
   Future<dynamic> patch(
@@ -134,14 +134,14 @@ class ApiClient {
           headers: await _getHeaders(requiresAuth: requiresAuth, customHeaders: headers),
           body: body != null ? jsonEncode(body) : null,
         )
-        .timeout(const Duration(seconds: 30));
- 
+        .timeout(const Duration(seconds: 60));
+
     if (response.statusCode == HttpStatus.ok || response.statusCode == HttpStatus.noContent) {
       if (response.body.isEmpty) return true;
       return jsonDecode(response.body);
     }
- 
-    throw HttpException('Error ${response.statusCode}: ${response.reasonPhrase}');
+
+    throw Exception(_extractErrorMessage(response));
   }
  
   Future<dynamic> delete(
