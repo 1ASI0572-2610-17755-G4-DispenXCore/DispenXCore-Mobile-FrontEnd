@@ -7,6 +7,9 @@ import 'package:dispenxcore_frontend/features/users/domain/usecases/update_user.
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SettingsPage
+// ─────────────────────────────────────────────────────────────────────────────
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -34,22 +37,28 @@ class _SettingsPageState extends State<SettingsPage> {
     _getCurrentUser = injector<GetCurrentUser>();
     _updateUser = injector<UpdateUser>();
     _changePassword = injector<ChangePassword>();
-    _loadUser();
+    // Espera al primer frame para garantizar que el widget esté montado
+    // antes de comenzar cualquier operación asíncrona.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadUser();
+    });
   }
 
   Future<void> _loadUser() async {
+    if (!mounted) return;
+    setState(() { _isLoadingUser = true; _loadError = null; });
     try {
       final user = await _getCurrentUser.call();
-      if (mounted) setState(() { _user = user; _isLoadingUser = false; });
+      if (!mounted) return;
+      setState(() { _user = user; _isLoadingUser = false; });
     } catch (e) {
-      if (mounted) {
-        setState(() { _loadError = _msg(e); _isLoadingUser = false; });
-      }
+      if (!mounted) return;
+      setState(() {
+        _loadError = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+        _isLoadingUser = false;
+      });
     }
   }
-
-  String _msg(Object e) =>
-      e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
 
   String get _initials {
     final f = (_user?.firstName.isNotEmpty == true) ? _user!.firstName[0] : '';
@@ -60,163 +69,6 @@ class _SettingsPageState extends State<SettingsPage> {
   String get _fullName =>
       _user != null ? '${_user!.firstName} ${_user!.lastName}'.trim() : '—';
 
-  // ── Diálogo editar perfil ─────────────────────────────────────
-  Future<void> _showEditProfileDialog() async {
-    if (_user == null) return;
-    final firstCtrl = TextEditingController(text: _user!.firstName);
-    final lastCtrl = TextEditingController(text: _user!.lastName);
-
-    await showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) {
-          bool saving = false;
-          return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Text('Editar Perfil',
-                style: TextStyle(fontFamily: 'Arimo', fontWeight: FontWeight.w700, fontSize: 17)),
-            content: Column(mainAxisSize: MainAxisSize.min, children: [
-              _dialogField(ctrl: firstCtrl, label: 'Nombre', hint: 'John'),
-              const SizedBox(height: 12),
-              _dialogField(ctrl: lastCtrl, label: 'Apellido', hint: 'Doe'),
-            ]),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancelar',
-                    style: TextStyle(color: Color(0xFF9CA3AF), fontFamily: 'Arimo')),
-              ),
-              StatefulBuilder(
-                builder: (_, setSaveBtn) => ElevatedButton(
-                  onPressed: saving
-                      ? null
-                      : () async {
-                          final fn = firstCtrl.text.trim();
-                          final ln = lastCtrl.text.trim();
-                          if (fn.isEmpty || ln.isEmpty) return;
-                          setSaveBtn(() => saving = true);
-                          try {
-                            final updated = await _updateUser.call(
-                              _user!.id,
-                              firstName: fn,
-                              lastName: ln,
-                              photoUrl: _user!.photoUrl,
-                            );
-                            if (!mounted) return;
-                            setState(() => _user = updated);
-                            if (ctx.mounted) Navigator.pop(ctx);
-                            _snack('Perfil actualizado', success: true);
-                          } catch (e) {
-                            setSaveBtn(() => saving = false);
-                            _snack(_msg(e), success: false);
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _teal, elevation: 0, shape: const StadiumBorder()),
-                  child: saving
-                      ? const SizedBox(width: 16, height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text('Guardar',
-                          style: TextStyle(fontFamily: 'Arimo', color: Colors.white)),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-
-    firstCtrl.dispose();
-    lastCtrl.dispose();
-  }
-
-  // ── Diálogo cambiar contraseña ────────────────────────────────
-  Future<void> _showChangePasswordDialog() async {
-    if (_user == null) return;
-    final currentCtrl = TextEditingController();
-    final newCtrl = TextEditingController();
-    final confirmCtrl = TextEditingController();
-
-    await showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) {
-          bool saving = false;
-          bool showCurrent = false;
-          bool showNew = false;
-          return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Text('Cambiar Contraseña',
-                style: TextStyle(fontFamily: 'Arimo', fontWeight: FontWeight.w700, fontSize: 17)),
-            content: Column(mainAxisSize: MainAxisSize.min, children: [
-              _dialogField(
-                ctrl: currentCtrl, label: 'Contraseña actual', hint: '••••••••',
-                obscure: !showCurrent,
-                toggle: () => setLocal(() => showCurrent = !showCurrent),
-              ),
-              const SizedBox(height: 12),
-              _dialogField(
-                ctrl: newCtrl, label: 'Nueva contraseña', hint: '••••••••',
-                obscure: !showNew,
-                toggle: () => setLocal(() => showNew = !showNew),
-              ),
-              const SizedBox(height: 12),
-              _dialogField(
-                ctrl: confirmCtrl, label: 'Confirmar nueva', hint: '••••••••',
-                obscure: !showNew,
-              ),
-            ]),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancelar',
-                    style: TextStyle(color: Color(0xFF9CA3AF), fontFamily: 'Arimo')),
-              ),
-              StatefulBuilder(
-                builder: (_, setSaveBtn) => ElevatedButton(
-                  onPressed: saving
-                      ? null
-                      : () async {
-                          final cur = currentCtrl.text.trim();
-                          final nw = newCtrl.text.trim();
-                          final cf = confirmCtrl.text.trim();
-                          if (cur.isEmpty || nw.isEmpty) return;
-                          if (nw != cf) { _snack('Las contraseñas no coinciden', success: false); return; }
-                          if (nw.length < 6) { _snack('Mínimo 6 caracteres', success: false); return; }
-                          setSaveBtn(() => saving = true);
-                          try {
-                            await _changePassword.call(
-                              _user!.id,
-                              currentPassword: cur,
-                              newPassword: nw,
-                            );
-                            if (ctx.mounted) Navigator.pop(ctx);
-                            _snack('Contraseña actualizada', success: true);
-                          } catch (e) {
-                            setSaveBtn(() => saving = false);
-                            _snack(_msg(e), success: false);
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _teal, elevation: 0, shape: const StadiumBorder()),
-                  child: saving
-                      ? const SizedBox(width: 16, height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text('Cambiar',
-                          style: TextStyle(fontFamily: 'Arimo', color: Colors.white)),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-
-    currentCtrl.dispose();
-    newCtrl.dispose();
-    confirmCtrl.dispose();
-  }
-
   void _snack(String msg, {required bool success}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -225,6 +77,37 @@ class _SettingsPageState extends State<SettingsPage> {
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ));
+  }
+
+  // Cada diálogo es su propia StatefulWidget → tiene su propio dispose()
+  // y sus propios TextEditingControllers. Esto elimina el _dependents.isEmpty.
+  Future<void> _showEditProfileDialog() async {
+    if (_user == null || !mounted) return;
+    final updated = await showDialog<User>(
+      context: context,
+      builder: (ctx) => _EditProfileDialog(
+        user: _user!,
+        updateUser: _updateUser,
+      ),
+    );
+    if (updated != null && mounted) {
+      setState(() => _user = updated);
+      _snack('Perfil actualizado', success: true);
+    }
+  }
+
+  Future<void> _showChangePasswordDialog() async {
+    if (_user == null || !mounted) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _ChangePasswordDialog(
+        userId: _user!.id,
+        changePassword: _changePassword,
+      ),
+    );
+    if (ok == true && mounted) {
+      _snack('Contraseña actualizada', success: true);
+    }
   }
 
   @override
@@ -244,17 +127,15 @@ class _SettingsPageState extends State<SettingsPage> {
             Container(
               width: 36, height: 36,
               decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(10)),
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(10)),
               child: const Icon(Icons.notifications_outlined,
                   color: Color(0xFF374151), size: 18),
             ),
           ]),
 
           const SizedBox(height: 20),
-
-          // ── Tarjeta de perfil ─────────────────────────────────
           _buildProfileCard(),
-
           const SizedBox(height: 24),
 
           const Text('Configuración',
@@ -264,10 +145,9 @@ class _SettingsPageState extends State<SettingsPage> {
           const Text('Gestiona tus dispositivos y preferencias de cuenta.',
               style: TextStyle(color: Color(0xFF6B7280), fontSize: 13,
                   fontFamily: 'Arimo', height: 1.4)),
-
           const SizedBox(height: 24),
 
-          // ── Notificaciones ────────────────────────────────────
+          // ── Notificaciones ──────────────────────────────────
           _sectionLabel('PREFERENCIAS DE NOTIFICACIÓN'),
           const SizedBox(height: 10),
           _switchTile(
@@ -280,20 +160,18 @@ class _SettingsPageState extends State<SettingsPage> {
             subtitle: 'Confirmación de entrega',
             value: _deliveryAlert, onChanged: (v) => setState(() => _deliveryAlert = v),
           ),
-
           const SizedBox(height: 20),
 
-          // ── Red ───────────────────────────────────────────────
+          // ── Red ─────────────────────────────────────────────
           _sectionLabel('CONFIGURACIÓN DE RED'),
           const SizedBox(height: 10),
           _navTile(icon: Icons.wifi_rounded, title: 'Red Wi-Fi',
               subtitle: 'Conectado: DispenX_Main_5G', onTap: () {}),
           _navTile(icon: Icons.hub_outlined, title: 'Protocolo MQTT',
               subtitle: 'Cloud Integration Active', onTap: () {}),
-
           const SizedBox(height: 20),
 
-          // ── Cuenta ────────────────────────────────────────────
+          // ── Cuenta ──────────────────────────────────────────
           _sectionLabel('AJUSTES DE CUENTA'),
           const SizedBox(height: 10),
           _navTile(icon: Icons.person_outline_rounded, title: 'Editar Perfil',
@@ -302,10 +180,9 @@ class _SettingsPageState extends State<SettingsPage> {
               subtitle: '', onTap: _showChangePasswordDialog),
           _navTile(icon: Icons.help_outline_rounded, title: 'Centro de Ayuda',
               subtitle: '', onTap: () {}),
-
           const SizedBox(height: 28),
 
-          // ── Logout ────────────────────────────────────────────
+          // ── Logout ──────────────────────────────────────────
           SizedBox(
             width: double.infinity, height: 52,
             child: OutlinedButton.icon(
@@ -321,7 +198,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 backgroundColor: const Color(0xFFFFF5F5),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
-              icon: const Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 18),
+              icon: const Icon(Icons.logout_rounded,
+                  color: Color(0xFFEF4444), size: 18),
               label: const Text('Cerrar Sesión',
                   style: TextStyle(color: Color(0xFFEF4444), fontSize: 15,
                       fontFamily: 'Arimo', fontWeight: FontWeight.w600)),
@@ -330,14 +208,15 @@ class _SettingsPageState extends State<SettingsPage> {
 
           const SizedBox(height: 16),
           const Center(child: Text('Versión 2.4.1-rc (Build 890)',
-              style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF), fontFamily: 'Arimo'))),
+              style: TextStyle(fontSize: 11,
+                  color: Color(0xFF9CA3AF), fontFamily: 'Arimo'))),
           const SizedBox(height: 8),
         ],
       ),
     );
   }
 
-  // ── Tarjeta de perfil ──────────────────────────────────────────
+  // ── Tarjeta de perfil ────────────────────────────────────────
   Widget _buildProfileCard() {
     if (_isLoadingUser) {
       return Container(
@@ -348,7 +227,8 @@ class _SettingsPageState extends State<SettingsPage> {
               child: CircularProgressIndicator(strokeWidth: 2, color: _teal)),
           SizedBox(width: 14),
           Text('Cargando perfil…',
-              style: TextStyle(color: Color(0xFF9CA3AF), fontFamily: 'Arimo', fontSize: 13)),
+              style: TextStyle(color: Color(0xFF9CA3AF),
+                  fontFamily: 'Arimo', fontSize: 13)),
         ]),
       );
     }
@@ -357,21 +237,23 @@ class _SettingsPageState extends State<SettingsPage> {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF5F5), borderRadius: BorderRadius.circular(16),
+          color: const Color(0xFFFFF5F5),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFFEE2E2)),
         ),
         child: Row(children: [
-          const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 18),
+          const Icon(Icons.error_outline,
+              color: Color(0xFFEF4444), size: 18),
           const SizedBox(width: 10),
           Expanded(child: Text(_loadError!,
-              style: const TextStyle(color: Color(0xFFEF4444), fontFamily: 'Arimo', fontSize: 12))),
+              style: const TextStyle(color: Color(0xFFEF4444),
+                  fontFamily: 'Arimo', fontSize: 12))),
           IconButton(
-            onPressed: () {
-              setState(() { _isLoadingUser = true; _loadError = null; });
-              _loadUser();
-            },
-            icon: const Icon(Icons.refresh_rounded, color: Color(0xFFEF4444), size: 18),
-            padding: EdgeInsets.zero, constraints: const BoxConstraints(),
+            onPressed: _loadUser,
+            icon: const Icon(Icons.refresh_rounded,
+                color: Color(0xFFEF4444), size: 18),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
           ),
         ]),
       );
@@ -381,29 +263,31 @@ class _SettingsPageState extends State<SettingsPage> {
       padding: const EdgeInsets.all(18),
       decoration: _cardDecoration(),
       child: Row(children: [
-        // Avatar: foto de red si existe, iniciales si no
         Container(
           width: 58, height: 58,
           decoration: const BoxDecoration(color: _teal, shape: BoxShape.circle),
           clipBehavior: Clip.antiAlias,
           child: (_user?.photoUrl != null && _user!.photoUrl!.isNotEmpty)
               ? Image.network(_user!.photoUrl!, fit: BoxFit.cover,
-                  errorBuilder: (_, a, b) => _initialsCenter(20))
+                  errorBuilder: (ctx, err, st) => _initialsCenter(20))
               : _initialsCenter(20),
         ),
         const SizedBox(width: 16),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(_fullName,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontFamily: 'Arimo',
-                  fontSize: 16, color: Color(0xFF1F2937))),
+              style: const TextStyle(fontWeight: FontWeight.w700,
+                  fontFamily: 'Arimo', fontSize: 16, color: Color(0xFF1F2937))),
           const SizedBox(height: 3),
           Text(_user?.email ?? '',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280), fontFamily: 'Arimo')),
+              style: const TextStyle(fontSize: 12,
+                  color: Color(0xFF6B7280), fontFamily: 'Arimo')),
           const SizedBox(height: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: _teal.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(20)),
+              color: _teal.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(20),
+            ),
             child: Text(
               _user?.role == Role.admin ? 'Administrador' : 'Usuario',
               style: const TextStyle(fontSize: 10, color: _teal,
@@ -416,10 +300,14 @@ class _SettingsPageState extends State<SettingsPage> {
           icon: Container(
             padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.edit_outlined, size: 16, color: Color(0xFF374151)),
+              color: const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.edit_outlined,
+                size: 16, color: Color(0xFF374151)),
           ),
-          padding: EdgeInsets.zero, constraints: const BoxConstraints(),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
         ),
       ]),
     );
@@ -444,48 +332,13 @@ class _SettingsPageState extends State<SettingsPage> {
   BoxDecoration _cardDecoration() => BoxDecoration(
     color: Colors.white, borderRadius: BorderRadius.circular(20),
     border: Border.all(color: const Color(0xFFF0F0F0)),
-    boxShadow: [BoxShadow(
-        color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 3))],
+    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04),
+        blurRadius: 10, offset: const Offset(0, 3))],
   );
 
-  Widget _dialogField({
-    required TextEditingController ctrl,
-    required String label,
-    required String hint,
-    bool obscure = false,
-    VoidCallback? toggle,
-  }) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-          fontFamily: 'Arimo', color: Color(0xFF374151))),
-      const SizedBox(height: 6),
-      TextField(
-        controller: ctrl, obscureText: obscure,
-        style: const TextStyle(fontFamily: 'Arimo', fontSize: 14),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(color: Color(0xFFD1D5DB), fontFamily: 'Arimo'),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: _teal, width: 1.6)),
-          suffixIcon: toggle != null
-              ? IconButton(
-                  onPressed: toggle,
-                  icon: Icon(obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                      size: 18, color: const Color(0xFF9CA3AF)))
-              : null,
-        ),
-      ),
-    ]);
-  }
-
   Widget _sectionLabel(String text) => Text(text, style: const TextStyle(
-    fontSize: 11, fontWeight: FontWeight.w700,
-    fontFamily: 'Arimo', color: Color(0xFF9CA3AF), letterSpacing: 0.7));
+    fontSize: 11, fontWeight: FontWeight.w700, fontFamily: 'Arimo',
+    color: Color(0xFF9CA3AF), letterSpacing: 0.7));
 
   Widget _switchTile({
     required IconData icon, required String title,
@@ -495,10 +348,12 @@ class _SettingsPageState extends State<SettingsPage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFF0F0F0)),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 6, offset: const Offset(0, 2))]),
+      decoration: BoxDecoration(
+        color: Colors.white, borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF0F0F0)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6, offset: const Offset(0, 2))],
+      ),
       child: Row(children: [
         Container(width: 36, height: 36,
             decoration: BoxDecoration(color: _teal.withValues(alpha: 0.08),
@@ -512,11 +367,13 @@ class _SettingsPageState extends State<SettingsPage> {
           Text(subtitle, style: const TextStyle(fontSize: 11,
               color: Color(0xFF9CA3AF), fontFamily: 'Arimo')),
         ])),
-        Switch(value: value, onChanged: onChanged,
-            activeTrackColor: const Color(0xFF16A34A),
-            inactiveTrackColor: const Color(0xFFE5E7EB),
-            activeThumbColor: Colors.white, inactiveThumbColor: Colors.white,
-            trackOutlineColor: WidgetStateProperty.all(Colors.transparent)),
+        Switch(
+          value: value, onChanged: onChanged,
+          activeTrackColor: const Color(0xFF16A34A),
+          inactiveTrackColor: const Color(0xFFE5E7EB),
+          activeThumbColor: Colors.white, inactiveThumbColor: Colors.white,
+          trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
+        ),
       ]),
     );
   }
@@ -527,10 +384,12 @@ class _SettingsPageState extends State<SettingsPage> {
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFF0F0F0)),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 6, offset: const Offset(0, 2))]),
+      decoration: BoxDecoration(
+        color: Colors.white, borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF0F0F0)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6, offset: const Offset(0, 2))],
+      ),
       child: ListTile(
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
@@ -548,5 +407,306 @@ class _SettingsPageState extends State<SettingsPage> {
             color: Color(0xFFD1D5DB), size: 20),
       ),
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Diálogo: Editar Perfil
+// StatefulWidget propio → sus TextEditingControllers se disponen en dispose()
+// sin depender del ciclo de vida del padre.
+// ─────────────────────────────────────────────────────────────────────────────
+class _EditProfileDialog extends StatefulWidget {
+  final User user;
+  final UpdateUser updateUser;
+
+  const _EditProfileDialog({required this.user, required this.updateUser});
+
+  @override
+  State<_EditProfileDialog> createState() => _EditProfileDialogState();
+}
+
+class _EditProfileDialogState extends State<_EditProfileDialog> {
+  late final TextEditingController _firstCtrl;
+  late final TextEditingController _lastCtrl;
+  bool _saving = false;
+
+  static const _teal = Color(0xFF009688);
+
+  @override
+  void initState() {
+    super.initState();
+    _firstCtrl = TextEditingController(text: widget.user.firstName);
+    _lastCtrl = TextEditingController(text: widget.user.lastName);
+  }
+
+  @override
+  void dispose() {
+    _firstCtrl.dispose();
+    _lastCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final fn = _firstCtrl.text.trim();
+    final ln = _lastCtrl.text.trim();
+    if (fn.isEmpty || ln.isEmpty) return;
+
+    setState(() => _saving = true);
+    try {
+      final updated = await widget.updateUser.call(
+        widget.user.id,
+        firstName: fn,
+        lastName: ln,
+        photoUrl: widget.user.photoUrl,
+      );
+      if (!mounted) return;
+      // Devuelve el User actualizado al padre vía pop.
+      Navigator.pop(context, updated);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      final msg = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(msg, style: const TextStyle(fontFamily: 'Arimo')),
+        backgroundColor: Colors.red.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text('Editar Perfil',
+          style: TextStyle(fontFamily: 'Arimo',
+              fontWeight: FontWeight.w700, fontSize: 17)),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        _field(ctrl: _firstCtrl, label: 'Nombre', hint: 'John'),
+        const SizedBox(height: 12),
+        _field(ctrl: _lastCtrl, label: 'Apellido', hint: 'Doe'),
+      ]),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context),
+          child: const Text('Cancelar',
+              style: TextStyle(color: Color(0xFF9CA3AF), fontFamily: 'Arimo')),
+        ),
+        ElevatedButton(
+          onPressed: _saving ? null : _save,
+          style: ElevatedButton.styleFrom(
+              backgroundColor: _teal, elevation: 0,
+              shape: const StadiumBorder()),
+          child: _saving
+              ? const SizedBox(width: 16, height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2,
+                      color: Colors.white))
+              : const Text('Guardar',
+                  style: TextStyle(fontFamily: 'Arimo', color: Colors.white)),
+        ),
+      ],
+    );
+  }
+
+  Widget _field({
+    required TextEditingController ctrl,
+    required String label,
+    required String hint,
+    bool obscure = false,
+    VoidCallback? toggle,
+  }) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: const TextStyle(fontSize: 12,
+          fontWeight: FontWeight.w600, fontFamily: 'Arimo',
+          color: Color(0xFF374151))),
+      const SizedBox(height: 6),
+      TextField(
+        controller: ctrl, obscureText: obscure,
+        style: const TextStyle(fontFamily: 'Arimo', fontSize: 14),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(color: Color(0xFFD1D5DB), fontFamily: 'Arimo'),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: _teal, width: 1.6)),
+          suffixIcon: toggle != null
+              ? IconButton(
+                  onPressed: toggle,
+                  icon: Icon(obscure
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                      size: 18, color: const Color(0xFF9CA3AF)))
+              : null,
+        ),
+      ),
+    ]);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Diálogo: Cambiar Contraseña
+// ─────────────────────────────────────────────────────────────────────────────
+class _ChangePasswordDialog extends StatefulWidget {
+  final String userId;
+  final ChangePassword changePassword;
+
+  const _ChangePasswordDialog(
+      {required this.userId, required this.changePassword});
+
+  @override
+  State<_ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+}
+
+class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
+  late final TextEditingController _currentCtrl;
+  late final TextEditingController _newCtrl;
+  late final TextEditingController _confirmCtrl;
+  bool _saving = false;
+  bool _showCurrent = false;
+  bool _showNew = false;
+
+  static const _teal = Color(0xFF009688);
+
+  @override
+  void initState() {
+    super.initState();
+    _currentCtrl = TextEditingController();
+    _newCtrl = TextEditingController();
+    _confirmCtrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _currentCtrl.dispose();
+    _newCtrl.dispose();
+    _confirmCtrl.dispose();
+    super.dispose();
+  }
+
+  void _showSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg, style: const TextStyle(fontFamily: 'Arimo')),
+      backgroundColor: Colors.red.shade600,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
+  }
+
+  Future<void> _save() async {
+    final cur = _currentCtrl.text.trim();
+    final nw = _newCtrl.text.trim();
+    final cf = _confirmCtrl.text.trim();
+
+    if (cur.isEmpty || nw.isEmpty) return;
+    if (nw != cf) { _showSnack('Las contraseñas no coinciden'); return; }
+    if (nw.length < 6) { _showSnack('Mínimo 6 caracteres'); return; }
+
+    setState(() => _saving = true);
+    try {
+      await widget.changePassword.call(
+        widget.userId,
+        currentPassword: cur,
+        newPassword: nw,
+      );
+      if (!mounted) return;
+      // Devuelve true al padre para mostrar el SnackBar de éxito.
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      final msg = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+      _showSnack(msg);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text('Cambiar Contraseña',
+          style: TextStyle(fontFamily: 'Arimo',
+              fontWeight: FontWeight.w700, fontSize: 17)),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        _field(
+          ctrl: _currentCtrl, label: 'Contraseña actual', hint: '••••••••',
+          obscure: !_showCurrent,
+          toggle: () => setState(() => _showCurrent = !_showCurrent),
+        ),
+        const SizedBox(height: 12),
+        _field(
+          ctrl: _newCtrl, label: 'Nueva contraseña', hint: '••••••••',
+          obscure: !_showNew,
+          toggle: () => setState(() => _showNew = !_showNew),
+        ),
+        const SizedBox(height: 12),
+        _field(
+          ctrl: _confirmCtrl, label: 'Confirmar nueva', hint: '••••••••',
+          obscure: !_showNew,
+        ),
+      ]),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context),
+          child: const Text('Cancelar',
+              style: TextStyle(color: Color(0xFF9CA3AF), fontFamily: 'Arimo')),
+        ),
+        ElevatedButton(
+          onPressed: _saving ? null : _save,
+          style: ElevatedButton.styleFrom(
+              backgroundColor: _teal, elevation: 0,
+              shape: const StadiumBorder()),
+          child: _saving
+              ? const SizedBox(width: 16, height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2,
+                      color: Colors.white))
+              : const Text('Cambiar',
+                  style: TextStyle(fontFamily: 'Arimo', color: Colors.white)),
+        ),
+      ],
+    );
+  }
+
+  Widget _field({
+    required TextEditingController ctrl,
+    required String label,
+    required String hint,
+    bool obscure = false,
+    VoidCallback? toggle,
+  }) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: const TextStyle(fontSize: 12,
+          fontWeight: FontWeight.w600, fontFamily: 'Arimo',
+          color: Color(0xFF374151))),
+      const SizedBox(height: 6),
+      TextField(
+        controller: ctrl, obscureText: obscure,
+        style: const TextStyle(fontFamily: 'Arimo', fontSize: 14),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(color: Color(0xFFD1D5DB), fontFamily: 'Arimo'),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: _teal, width: 1.6)),
+          suffixIcon: toggle != null
+              ? IconButton(
+                  onPressed: toggle,
+                  icon: Icon(obscure
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                      size: 18, color: const Color(0xFF9CA3AF)))
+              : null,
+        ),
+      ),
+    ]);
   }
 }
