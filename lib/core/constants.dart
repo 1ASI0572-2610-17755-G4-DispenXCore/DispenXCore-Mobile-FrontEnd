@@ -5,7 +5,7 @@
 // Descomenta la línea que corresponda a tu entorno:
 
 // 1. BACKEND DEPLOYADO (Producción/Staging)
-const String BASE_URL = 'https://dispenxcore-web-frontend.onrender.com';
+const String BASE_URL = 'https://dispenxcore-backend-production.up.railway.app';
 // Ejemplo: const String BASE_URL = 'https://mi-backend.azurewebsites.net/api/v1';
 
 // 2. EMULADOR ANDROID (Desarrollo local)

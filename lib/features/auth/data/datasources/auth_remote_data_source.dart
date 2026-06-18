@@ -1,58 +1,59 @@
-import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:dispenxcore_frontend/core/api/api_client.dart';
 import 'package:dispenxcore_frontend/features/auth/domain/entities/session.dart';
 import 'package:dispenxcore_frontend/features/auth/domain/entities/user.dart';
- 
+
 class AuthRemoteDataSource {
   final ApiClient apiClient;
- 
+
   AuthRemoteDataSource({required this.apiClient});
- 
-  /// Mock: GET /users, filtra por email+password en cliente,
-  /// genera token igual que el web (btoa equivalente en Dart).
-  /// Cuando haya backend real, reemplazar por POST /auth/sign-in.
+
   Future<Session> login(String email, String password) async {
-    final List<dynamic> users = await apiClient.get('/users', requiresAuth: false);
- 
-    final match = users.cast<Map<String, dynamic>>().firstWhere(
-      (u) => u['email'] == email && u['password'] == password,
-      orElse: () => {},
+    final response = await apiClient.post(
+      '/api/v1/auth/login',
+      body: {'email': email, 'password': password},
+      requiresAuth: false,
     );
- 
-    if (match.isEmpty) {
-      throw Exception('Credenciales incorrectas.');
+
+    // TEMPORAL — remover antes de producción
+    debugPrint('[AUTH] login response: $response');
+
+    final token = response['token'] as String?;
+    if (token == null || token.isEmpty) {
+      throw Exception('Respuesta inesperada del servidor (token ausente).');
     }
- 
-    final user = User.fromJson(match);
- 
-    // Genera token igual que el web: base64(email:role:timestamp)
-    final raw = '${user.email}:${user.role.name.toUpperCase()}:${DateTime.now().millisecondsSinceEpoch}';
-    final token = base64Encode(utf8.encode(raw));
- 
-    return Session(token: token, user: user);
+
+    final userJson = response['user'] as Map<String, dynamic>?;
+    if (userJson == null) {
+      throw Exception('Respuesta inesperada del servidor (user ausente).');
+    }
+
+    return Session(token: token, user: User.fromJson(userJson));
   }
- 
-  /// Mock: POST /users con role USER y status ACTIVE por defecto.
-  /// Cuando haya backend real, reemplazar por POST /auth/sign-up.
-  Future<User> register({
+
+  Future<void> register({
     required String email,
     required String password,
     required String firstName,
     required String lastName,
   }) async {
     final response = await apiClient.post(
-      '/users',
+      '/api/v1/auth/register',
       body: {
-        'email': email,
-        'password': password,
         'firstName': firstName,
         'lastName': lastName,
-        'role': 'USER',
-        'status': 'ACTIVE',
+        'email': email,
+        'password': password,
       },
       requiresAuth: false,
     );
- 
-    return User.fromJson(response);
+
+    // TEMPORAL — remover antes de producción
+    debugPrint('[AUTH] register response: $response');
+    // El backend devuelve { "message": "..." } — nada más que parsear.
+  }
+
+  Future<void> logout() async {
+    await apiClient.post('/api/v1/auth/logout', requiresAuth: true);
   }
 }

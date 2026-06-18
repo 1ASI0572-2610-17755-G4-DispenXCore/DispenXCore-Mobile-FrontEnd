@@ -62,11 +62,19 @@ class _RegisterPageState extends State<RegisterPage> {
         lastName: _lastNameController.text.trim(),
       );
       if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('Cuenta creada. Inicia sesión.'),
+        backgroundColor: const Color(0xFF009688),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 3),
+      ));
       Navigator.pushReplacementNamed(context, '/login');
     } catch (e) {
       if (!mounted) return;
+      final msg = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Error: $e'),
+        content: Text(msg),
         backgroundColor: Colors.red.shade600,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

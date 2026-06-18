@@ -1,7 +1,6 @@
 import 'package:dispenxcore_frontend/core/storage/token_storage.dart';
 import 'package:dispenxcore_frontend/features/auth/data/datasources/auth_remote_data_source.dart';
 import 'package:dispenxcore_frontend/features/auth/domain/entities/session.dart';
-import 'package:dispenxcore_frontend/features/auth/domain/entities/user.dart';
 import 'package:dispenxcore_frontend/features/auth/domain/repositories/auth_repository.dart';
  
 class AuthRepositoryImpl implements AuthRepository {
@@ -27,12 +26,12 @@ class AuthRepositoryImpl implements AuthRepository {
   }
  
   @override
-  Future<User> register({
+  Future<void> register({
     required String email,
     required String password,
     required String firstName,
     required String lastName,
-  }) async {
+  }) {
     return remoteDataSource.register(
       email: email,
       password: password,

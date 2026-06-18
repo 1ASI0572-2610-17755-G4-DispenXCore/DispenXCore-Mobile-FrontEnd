@@ -68,22 +68,32 @@ class ApiClient {
     bool requiresAuth = false,
   }) async {
     final uri = Uri.parse(_buildUrl(endpoint));
- 
+
     final response = await http
         .post(
           uri,
           headers: await _getHeaders(requiresAuth: requiresAuth, customHeaders: headers),
           body: body != null ? jsonEncode(body) : null,
         )
-        .timeout(const Duration(seconds: 30));
- 
+        .timeout(const Duration(seconds: 60));
+
     if (response.statusCode == HttpStatus.ok || response.statusCode == HttpStatus.created) {
       final decoded = jsonDecode(response.body);
       if (decoded is Map<String, dynamic>) return decoded;
       throw const FormatException('Se esperaba un objeto JSON en la respuesta.');
     }
- 
-    throw HttpException('Error ${response.statusCode}: ${response.reasonPhrase}');
+
+    throw Exception(_extractErrorMessage(response));
+  }
+
+  String _extractErrorMessage(http.Response response) {
+    try {
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final msg = body['message'];
+      if (msg is String && msg.isNotEmpty) return msg;
+      if (msg is List && msg.isNotEmpty) return msg.join(', ');
+    } catch (_) {}
+    return 'Error ${response.statusCode}: ${response.reasonPhrase ?? "Error desconocido"}';
   }
  
   Future<dynamic> put(
