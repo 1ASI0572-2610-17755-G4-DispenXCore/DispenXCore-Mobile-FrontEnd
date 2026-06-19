@@ -27,6 +27,10 @@ import 'package:dispenxcore_frontend/features/users/data/repositories/user_repos
 import 'package:dispenxcore_frontend/features/users/domain/repositories/user_repository.dart';
 import 'package:dispenxcore_frontend/features/users/domain/usecases/change_password.dart';
 import 'package:dispenxcore_frontend/features/users/domain/usecases/get_current_user.dart';
+import 'package:dispenxcore_frontend/features/schedules/data/datasources/schedule_remote_data_source.dart';
+import 'package:dispenxcore_frontend/features/schedules/data/repositories/schedule_repository_impl.dart';
+import 'package:dispenxcore_frontend/features/schedules/domain/repositories/schedule_repository.dart';
+import 'package:dispenxcore_frontend/features/schedules/domain/usecases/schedule_usecases.dart';
 import 'package:dispenxcore_frontend/features/users/domain/usecases/update_user.dart';
 
 // Infraestructura base
@@ -74,6 +78,13 @@ final DeviceRemoteDataSource _deviceRemoteDataSource =
 final DeviceRepository deviceRepository =
     DeviceRepositoryImpl(remoteDataSource: _deviceRemoteDataSource);
 
+// Schedules
+final ScheduleRemoteDataSource _scheduleRemoteDataSource =
+    ScheduleRemoteDataSource(apiClient: apiClient);
+
+final ScheduleRepository scheduleRepository =
+    ScheduleRepositoryImpl(dataSource: _scheduleRemoteDataSource);
+
 // Use cases
 final LoginUser loginUserUseCase = LoginUser(authRepository);
 final RegisterUser registerUserUseCase = RegisterUser(authRepository);
@@ -91,6 +102,11 @@ final GetDispensatorDetail getDispensatorDetailUseCase =
 final GetDevice getDeviceUseCase = GetDevice(deviceRepository);
 final UpdateDevice updateDeviceUseCase = UpdateDevice(deviceRepository);
 final PingDevice pingDeviceUseCase = PingDevice(deviceRepository);
+final GetSchedules getSchedulesUseCase = GetSchedules(scheduleRepository);
+final CreateSchedule createScheduleUseCase = CreateSchedule(scheduleRepository);
+final UpdateSchedule updateScheduleUseCase = UpdateSchedule(scheduleRepository);
+final DeleteSchedule deleteScheduleUseCase = DeleteSchedule(scheduleRepository);
+final ToggleSchedule toggleScheduleUseCase = ToggleSchedule(scheduleRepository);
 
 T injector<T>() {
   if (T == TokenStorage) return tokenStorage as T;
@@ -113,6 +129,12 @@ T injector<T>() {
   if (T == GetDevice) return getDeviceUseCase as T;
   if (T == UpdateDevice) return updateDeviceUseCase as T;
   if (T == PingDevice) return pingDeviceUseCase as T;
+  if (T == ScheduleRepository) return scheduleRepository as T;
+  if (T == GetSchedules) return getSchedulesUseCase as T;
+  if (T == CreateSchedule) return createScheduleUseCase as T;
+  if (T == UpdateSchedule) return updateScheduleUseCase as T;
+  if (T == DeleteSchedule) return deleteScheduleUseCase as T;
+  if (T == ToggleSchedule) return toggleScheduleUseCase as T;
 
   throw Exception('Dependencia no registrada: $T');
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../features/home/home_page.dart';
 import '../../features/devices/devices_page.dart';
 import '../../features/history/history_page.dart';
+import '../../features/schedules/presentation/pages/schedules_page.dart';
 import '../../features/settings/settings_page.dart';
 
 class MainPage extends StatefulWidget {
@@ -18,6 +19,7 @@ class _MainPageState extends State<MainPage> {
     HomePage(),
     DevicesPage(),
     HistoryPage(),
+    SchedulesPage(),
     SettingsPage(),
   ];
 
@@ -61,6 +63,11 @@ class _MainPageState extends State<MainPage> {
                 icon: Icon(Icons.history_rounded),
                 activeIcon: Icon(Icons.history_rounded),
                 label: 'History',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.schedule_outlined),
+                activeIcon: Icon(Icons.schedule_rounded),
+                label: 'Horarios',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.settings_outlined),
