@@ -1,8 +1,11 @@
 import 'package:dispenxcore_frontend/core/di/injector.dart';
 import 'package:dispenxcore_frontend/features/alerts/presentation/pages/alerts_page.dart';
+import 'package:dispenxcore_frontend/features/alertas_stock/presentation/pages/alertas_stock_page.dart';
 import 'package:dispenxcore_frontend/features/auth/domain/entities/user.dart';
 import 'package:dispenxcore_frontend/features/dispensators/domain/entities/dispensator_detail.dart';
 import 'package:dispenxcore_frontend/features/dispensators/domain/usecases/get_dispensator_detail.dart';
+import 'package:dispenxcore_frontend/features/inventario/domain/entities/grain_inventory.dart';
+import 'package:dispenxcore_frontend/features/inventario/domain/usecases/inventario_usecases.dart';
 import 'package:dispenxcore_frontend/features/users/domain/usecases/get_current_user.dart';
 import 'package:flutter/material.dart';
 
@@ -24,16 +27,21 @@ class _HomePageState extends State<HomePage> {
   DispensatorDetail? _inventory;
   String? _inventoryError;
 
+  // Grain inventory
+  List<GrainInventory> _grainInventory = [];
+
   bool _isLoading = true;
 
   late final GetCurrentUser _getCurrentUser;
   late final GetDispensatorDetail _getDispensatorDetail;
+  late final GetInventarioEstado _getInventarioEstado;
 
   @override
   void initState() {
     super.initState();
     _getCurrentUser = injector<GetCurrentUser>();
     _getDispensatorDetail = injector<GetDispensatorDetail>();
+    _getInventarioEstado = injector<GetInventarioEstado>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _loadData();
     });
@@ -45,7 +53,7 @@ class _HomePageState extends State<HomePage> {
 
     // Load both in parallel; each assigns directly to fields (no inner setState)
     // so a single setState at the end triggers one rebuild.
-    await Future.wait([_loadUserName(), _loadInventory()]);
+    await Future.wait([_loadUserName(), _loadInventory(), _loadGrainInventory()]);
 
     if (!mounted) return;
     setState(() => _isLoading = false);
@@ -76,6 +84,16 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _loadGrainInventory() async {
+    try {
+      final result = await _getInventarioEstado();
+      if (!mounted) return;
+      _grainInventory = result;
+    } catch (_) {
+      // Silencioso — la sección simplemente no aparece si falla
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -95,6 +113,15 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(width: 12),
               Expanded(child: _buildDevicesCard()),
             ]),
+            if (_grainInventory.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              _buildSectionHeader(
+                title: 'INVENTARIO DE GRANO',
+                trailing: const SizedBox.shrink(),
+              ),
+              const SizedBox(height: 10),
+              ..._grainInventory.map(_buildGrainCard),
+            ],
             const SizedBox(height: 26),
             _buildSectionHeader(
               title: 'ACTIVIDAD RECIENTE',
@@ -327,6 +354,97 @@ class _HomePageState extends State<HomePage> {
               fontWeight: FontWeight.w500)),
         ]),
       ]),
+    );
+  }
+
+  Widget _buildGrainCard(GrainInventory g) {
+    final pct = g.fraction;
+    final Color statusColor;
+    final Color statusBg;
+    final String statusLabel;
+    if (pct > 0.5) {
+      statusColor = const Color(0xFF16A34A);
+      statusBg = const Color(0xFFDCFCE7);
+      statusLabel = 'ÓPTIMO';
+    } else if (pct > 0.2) {
+      statusColor = const Color(0xFFF59E0B);
+      statusBg = const Color(0xFFFEF3C7);
+      statusLabel = 'NORMAL';
+    } else {
+      statusColor = const Color(0xFFEF4444);
+      statusBg = const Color(0xFFFEE2E2);
+      statusLabel = 'BAJO';
+    }
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AlertasStockPage(
+            contenedorId: g.id,
+            grano: g.grano,
+          ),
+        ),
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFF0F0F0)),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10, offset: const Offset(0, 3))],
+        ),
+        child: Row(children: [
+          SizedBox(
+            width: 44, height: 44,
+            child: Stack(alignment: Alignment.center, children: [
+              CircularProgressIndicator(
+                value: pct,
+                strokeWidth: 4,
+                backgroundColor: const Color(0xFFE5E7EB),
+                valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                strokeCap: StrokeCap.round,
+              ),
+              Text('${g.porcentajeRestante}%',
+                  style: TextStyle(fontSize: 9, fontFamily: 'Arimo',
+                      fontWeight: FontWeight.w700, color: statusColor)),
+            ]),
+          ),
+          const SizedBox(width: 14),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(g.grano,
+                style: const TextStyle(fontFamily: 'Arimo',
+                    fontWeight: FontWeight.w700, fontSize: 14,
+                    color: Color(0xFF1F2937))),
+            const SizedBox(height: 2),
+            Text('${g.pesoActual} g disponibles',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280),
+                    fontFamily: 'Arimo')),
+          ])),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(color: statusBg,
+                  borderRadius: BorderRadius.circular(20)),
+              child: Text(statusLabel,
+                  style: TextStyle(fontSize: 9, color: statusColor,
+                      fontFamily: 'Arimo', fontWeight: FontWeight.w700,
+                      letterSpacing: 0.4)),
+            ),
+            const SizedBox(height: 4),
+            const Row(children: [
+              Text('Ver alertas',
+                  style: TextStyle(fontSize: 10, color: Color(0xFF009688),
+                      fontFamily: 'Arimo', fontWeight: FontWeight.w600)),
+              SizedBox(width: 2),
+              Icon(Icons.chevron_right_rounded, size: 14,
+                  color: Color(0xFF009688)),
+            ]),
+          ]),
+        ]),
+      ),
     );
   }
 
