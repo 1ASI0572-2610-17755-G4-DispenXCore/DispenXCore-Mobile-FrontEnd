@@ -1,4 +1,5 @@
 import 'package:dispenxcore_frontend/core/di/injector.dart';
+import 'package:dispenxcore_frontend/features/alerts/presentation/pages/alerts_page.dart';
 import 'package:dispenxcore_frontend/features/auth/domain/entities/user.dart';
 import 'package:dispenxcore_frontend/features/dispensators/domain/entities/dispensator_detail.dart';
 import 'package:dispenxcore_frontend/features/dispensators/domain/usecases/get_dispensator_detail.dart';
@@ -145,12 +146,18 @@ class _HomePageState extends State<HomePage> {
           fontFamily: 'Arimo', fontWeight: FontWeight.w700,
           color: Color(0xFF1F2937))),
       const Spacer(),
-      Container(
-        width: 36, height: 36,
-        decoration: BoxDecoration(color: const Color(0xFFF3F4F6),
-            borderRadius: BorderRadius.circular(10)),
-        child: const Icon(Icons.notifications_outlined,
-            color: Color(0xFF374151), size: 18),
+      GestureDetector(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AlertsPage()),
+        ),
+        child: Container(
+          width: 36, height: 36,
+          decoration: BoxDecoration(color: const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(10)),
+          child: const Icon(Icons.notifications_outlined,
+              color: Color(0xFF374151), size: 18),
+        ),
       ),
     ]);
   }

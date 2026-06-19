@@ -47,11 +47,11 @@ final AuthRepository authRepository = AuthRepositoryImpl(
 );
 
 // Alerts
-final AlertsRemoteDataSource remoteDataSource =
-    AlertsRemoteDataSourceImpl(apiClient: apiClient);
+final AlertsRemoteDataSource _alertsRemoteDataSource =
+    AlertsRemoteDataSourceImpl(apiClient: apiClient, tokenStorage: tokenStorage);
 
 final AlertsRepository alertsRepository =
-    AlertsRepositoryImpl(remoteDataSource: remoteDataSource);
+    AlertsRepositoryImpl(remoteDataSource: _alertsRemoteDataSource);
 
 // Users
 final UserRemoteDataSource _userRemoteDataSource =
@@ -77,7 +77,9 @@ final DeviceRepository deviceRepository =
 // Use cases
 final LoginUser loginUserUseCase = LoginUser(authRepository);
 final RegisterUser registerUserUseCase = RegisterUser(authRepository);
-final GetActiveAlerts getActiveAlertsUseCase = GetActiveAlerts(alertsRepository);
+final GetNotifications getNotificationsUseCase = GetNotifications(alertsRepository);
+final MarkNotificationAsRead markNotificationAsReadUseCase = MarkNotificationAsRead(alertsRepository);
+final MarkAllNotificationsAsRead markAllNotificationsAsReadUseCase = MarkAllNotificationsAsRead(alertsRepository);
 final GetCurrentUser getCurrentUserUseCase =
     GetCurrentUser(userRepository, tokenStorage);
 final UpdateUser updateUserUseCase = UpdateUser(userRepository);
@@ -97,7 +99,9 @@ T injector<T>() {
   if (T == LoginUser) return loginUserUseCase as T;
   if (T == RegisterUser) return registerUserUseCase as T;
   if (T == AlertsRepository) return alertsRepository as T;
-  if (T == GetActiveAlerts) return getActiveAlertsUseCase as T;
+  if (T == GetNotifications) return getNotificationsUseCase as T;
+  if (T == MarkNotificationAsRead) return markNotificationAsReadUseCase as T;
+  if (T == MarkAllNotificationsAsRead) return markAllNotificationsAsReadUseCase as T;
   if (T == UserRepository) return userRepository as T;
   if (T == GetCurrentUser) return getCurrentUserUseCase as T;
   if (T == UpdateUser) return updateUserUseCase as T;

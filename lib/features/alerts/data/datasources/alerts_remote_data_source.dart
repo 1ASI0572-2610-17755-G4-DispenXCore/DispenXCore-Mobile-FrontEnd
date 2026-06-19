@@ -1,54 +1,36 @@
 import '../../../../core/api/api_client.dart';
+import '../../../../core/storage/token_storage.dart';
 
 abstract class AlertsRemoteDataSource {
-  Future<List<dynamic>> fetchActiveAlerts();
+  Future<List<dynamic>> fetchNotifications();
+  Future<void> markAsRead(String id);
+  Future<void> markAllAsRead(String userId);
 }
 
 class AlertsRemoteDataSourceImpl implements AlertsRemoteDataSource {
   final ApiClient apiClient;
+  final TokenStorage tokenStorage;
 
-  AlertsRemoteDataSourceImpl({required this.apiClient});
+  AlertsRemoteDataSourceImpl({required this.apiClient, required this.tokenStorage});
 
   @override
-  Future<List<dynamic>> fetchActiveAlerts() async {
-    // CONEXIÓN CON BACKEND
-    /*
-    final response = await apiClient.get('api/v1.0/notificaciones');
-    if (response.statusCode == 200) {
-      return response.data as List<dynamic>;
-    } else {
-      throw Exception('Error al obtener alertas del servidor');
-    }
-    */
+  Future<List<dynamic>> fetchNotifications() async {
+    final userId = await tokenStorage.getUserId();
+    final data = await apiClient.get(
+      '/api/v1/notifications',
+      queryParams: userId != null ? {'userId': userId} : null,
+    );
+    if (data is List) return data;
+    return [];
+  }
 
-    await Future.delayed(const Duration(milliseconds: 600));
+  @override
+  Future<void> markAsRead(String id) async {
+    await apiClient.patch('/api/v1/notifications/$id/read');
+  }
 
-    // Retorna una lista con la misma estructura JSON que envía tu backend en .NET
-    return [
-      {
-        "id": "101",
-        "grano": "Arroz Costeño (Contenedor A)",
-        "porcentajeActual": 12.0,
-        "umbralDisparo": 20.0,
-        "fechaCreacion": DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
-        "enviada": true
-      },
-      {
-        "id": "102",
-        "grano": "Azúcar Rubia (Contenedor B)",
-        "porcentajeActual": 5.0,
-        "umbralDisparo": 15.0,
-        "fechaCreacion": DateTime.now().subtract(const Duration(minutes: 45)).toIso8601String(),
-        "enviada": true
-      },
-      {
-        "id": "103",
-        "grano": "Lentejas Extra (Contenedor C)",
-        "porcentajeActual": 18.0,
-        "umbralDisparo": 10.0,
-        "fechaCreacion": DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
-        "enviada": false
-      }
-    ];
+  @override
+  Future<void> markAllAsRead(String userId) async {
+    await apiClient.patch('/api/v1/notifications/read-all?userId=$userId');
   }
 }

@@ -8,22 +8,22 @@ class AlertsRepositoryImpl implements AlertsRepository {
   AlertsRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<List<AlertGrain>> getActiveAlerts() async {
+  Future<List<AppNotification>> getNotifications() async {
     try {
-      final rawList = await remoteDataSource.fetchActiveAlerts();
-
-      return rawList.map((item) {
-        return AlertGrain(
-          id: item['id'].toString(),
-          grano: item['grano'] ?? 'Desconocido',
-          porcentajeActual: (item['porcentajeActual'] as num).toDouble(),
-          umbralDisparo: (item['umbralDisparo'] as num).toDouble(),
-          fechaCreacion: DateTime.parse(item['fechaCreacion']),
-          enviada: item['enviada'] ?? false,
-        );
-      }).toList();
+      final rawList = await remoteDataSource.fetchNotifications();
+      return rawList
+          .whereType<Map<String, dynamic>>()
+          .map(AppNotification.fromJson)
+          .toList();
     } catch (e) {
-      throw Exception("Error procesando los datos de alertas: $e");
+      throw Exception('Error al obtener notificaciones: $e');
     }
   }
+
+  @override
+  Future<void> markAsRead(String id) => remoteDataSource.markAsRead(id);
+
+  @override
+  Future<void> markAllAsRead(String userId) =>
+      remoteDataSource.markAllAsRead(userId);
 }
