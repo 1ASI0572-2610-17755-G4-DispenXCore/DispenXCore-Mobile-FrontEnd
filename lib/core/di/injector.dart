@@ -27,6 +27,10 @@ import 'package:dispenxcore_frontend/features/users/data/repositories/user_repos
 import 'package:dispenxcore_frontend/features/users/domain/repositories/user_repository.dart';
 import 'package:dispenxcore_frontend/features/users/domain/usecases/change_password.dart';
 import 'package:dispenxcore_frontend/features/users/domain/usecases/get_current_user.dart';
+import 'package:dispenxcore_frontend/features/history/data/datasources/history_remote_data_source.dart';
+import 'package:dispenxcore_frontend/features/history/data/repositories/history_repository_impl.dart';
+import 'package:dispenxcore_frontend/features/history/domain/repositories/history_repository.dart';
+import 'package:dispenxcore_frontend/features/history/domain/usecases/get_dispenser_events.dart';
 import 'package:dispenxcore_frontend/features/schedules/data/datasources/schedule_remote_data_source.dart';
 import 'package:dispenxcore_frontend/features/schedules/data/repositories/schedule_repository_impl.dart';
 import 'package:dispenxcore_frontend/features/schedules/domain/repositories/schedule_repository.dart';
@@ -78,6 +82,13 @@ final DeviceRemoteDataSource _deviceRemoteDataSource =
 final DeviceRepository deviceRepository =
     DeviceRepositoryImpl(remoteDataSource: _deviceRemoteDataSource);
 
+// History
+final HistoryRemoteDataSource _historyRemoteDataSource =
+    HistoryRemoteDataSource(apiClient: apiClient);
+
+final HistoryRepository historyRepository =
+    HistoryRepositoryImpl(dataSource: _historyRemoteDataSource);
+
 // Schedules
 final ScheduleRemoteDataSource _scheduleRemoteDataSource =
     ScheduleRemoteDataSource(apiClient: apiClient);
@@ -102,6 +113,7 @@ final GetDispensatorDetail getDispensatorDetailUseCase =
 final GetDevice getDeviceUseCase = GetDevice(deviceRepository);
 final UpdateDevice updateDeviceUseCase = UpdateDevice(deviceRepository);
 final PingDevice pingDeviceUseCase = PingDevice(deviceRepository);
+final GetDispenserEvents getDispenserEventsUseCase = GetDispenserEvents(historyRepository);
 final GetSchedules getSchedulesUseCase = GetSchedules(scheduleRepository);
 final CreateSchedule createScheduleUseCase = CreateSchedule(scheduleRepository);
 final UpdateSchedule updateScheduleUseCase = UpdateSchedule(scheduleRepository);
@@ -129,6 +141,8 @@ T injector<T>() {
   if (T == GetDevice) return getDeviceUseCase as T;
   if (T == UpdateDevice) return updateDeviceUseCase as T;
   if (T == PingDevice) return pingDeviceUseCase as T;
+  if (T == HistoryRepository) return historyRepository as T;
+  if (T == GetDispenserEvents) return getDispenserEventsUseCase as T;
   if (T == ScheduleRepository) return scheduleRepository as T;
   if (T == GetSchedules) return getSchedulesUseCase as T;
   if (T == CreateSchedule) return createScheduleUseCase as T;
