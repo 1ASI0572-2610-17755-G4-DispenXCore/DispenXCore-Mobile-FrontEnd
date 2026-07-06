@@ -48,6 +48,8 @@ import 'package:dispenxcore_frontend/features/dispenser/data/repositories/dispen
 import 'package:dispenxcore_frontend/features/dispenser/domain/repositories/dispenser_repository.dart';
 import 'package:dispenxcore_frontend/features/dispenser/domain/usecases/activate_dispenser.dart';
 import 'package:dispenxcore_frontend/features/users/domain/usecases/update_user.dart';
+import 'package:dispenxcore_frontend/core/services/edge_service.dart';
+import 'package:dispenxcore_frontend/core/services/scheduler_service.dart';
 
 // Infraestructura base
 final TokenStorage tokenStorage = TokenStorageImpl();
@@ -163,6 +165,13 @@ final DeleteSchedule deleteScheduleUseCase = DeleteSchedule(scheduleRepository);
 final ToggleSchedule toggleScheduleUseCase = ToggleSchedule(scheduleRepository);
 final ActivateDispenser activateDispenserUseCase = ActivateDispenser(dispenserRepository);
 
+final EdgeService edgeService = EdgeService();
+final SchedulerService schedulerService = SchedulerService(
+  getSchedules: getSchedulesUseCase,
+  getDevice: getDeviceUseCase,
+  edgeService: edgeService,
+);
+
 T injector<T>() {
   if (T == TokenStorage) return tokenStorage as T;
   if (T == ApiClient) return apiClient as T;
@@ -200,6 +209,8 @@ T injector<T>() {
   if (T == ToggleSchedule) return toggleScheduleUseCase as T;
   if (T == DispenserRepository) return dispenserRepository as T;
   if (T == ActivateDispenser) return activateDispenserUseCase as T;
+  if (T == EdgeService) return edgeService as T;
+  if (T == SchedulerService) return schedulerService as T;
 
   throw Exception('Dependencia no registrada: $T');
 }

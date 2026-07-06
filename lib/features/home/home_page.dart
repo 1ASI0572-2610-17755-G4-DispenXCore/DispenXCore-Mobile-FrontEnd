@@ -2,15 +2,15 @@ import 'package:dispenxcore_frontend/core/di/injector.dart';
 import 'package:dispenxcore_frontend/features/alerts/presentation/pages/alerts_page.dart';
 import 'package:dispenxcore_frontend/features/alertas_stock/presentation/pages/alertas_stock_page.dart';
 import 'package:dispenxcore_frontend/features/auth/domain/entities/user.dart';
-import 'package:dispenxcore_frontend/features/dispenser/domain/usecases/activate_dispenser.dart';
 import 'package:dispenxcore_frontend/features/dispensators/domain/entities/dispensator_detail.dart';
 import 'package:dispenxcore_frontend/features/dispensators/domain/usecases/get_dispensator_detail.dart';
 import 'package:dispenxcore_frontend/features/inventario/domain/entities/grain_inventory.dart';
 import 'package:dispenxcore_frontend/features/inventario/domain/usecases/inventario_usecases.dart';
 import 'package:dispenxcore_frontend/features/users/domain/usecases/get_current_user.dart';
+import 'package:dispenxcore_frontend/features/device/domain/entities/device_info.dart';
+import 'package:dispenxcore_frontend/features/device/domain/usecases/get_device.dart';
+import 'package:dispenxcore_frontend/core/services/edge_service.dart';
 import 'package:flutter/material.dart';
-
-const String _kDeviceId = 'esp32_01';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -34,14 +34,12 @@ class _HomePageState extends State<HomePage> {
   List<GrainInventory> _grainInventory = [];
 
   bool _isLoading = true;
-
-  // Dispenser
-  bool _dispensarCargando = false;
+  bool _dispensing = false;
+  DeviceInfo? _device;
 
   late final GetCurrentUser _getCurrentUser;
   late final GetDispensatorDetail _getDispensatorDetail;
   late final GetInventarioEstado _getInventarioEstado;
-  late final ActivateDispenser _activateDispenser;
 
   @override
   void initState() {
@@ -49,7 +47,6 @@ class _HomePageState extends State<HomePage> {
     _getCurrentUser = injector<GetCurrentUser>();
     _getDispensatorDetail = injector<GetDispensatorDetail>();
     _getInventarioEstado = injector<GetInventarioEstado>();
-    _activateDispenser = injector<ActivateDispenser>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _loadData();
     });
@@ -59,12 +56,58 @@ class _HomePageState extends State<HomePage> {
     if (!mounted) return;
     setState(() { _isLoading = true; _inventoryError = null; });
 
-    // Load both in parallel; each assigns directly to fields (no inner setState)
+    // Load in parallel; each assigns directly to fields (no inner setState)
     // so a single setState at the end triggers one rebuild.
-    await Future.wait([_loadUserName(), _loadInventory(), _loadGrainInventory()]);
+    await Future.wait([_loadUserName(), _loadInventory(), _loadGrainInventory(), _loadDevice()]);
 
     if (!mounted) return;
     setState(() => _isLoading = false);
+  }
+
+  Future<void> _loadDevice() async {
+    try {
+      final device = await injector<GetDevice>().call();
+      if (!mounted) return;
+      _device = device;
+    } catch (_) {}
+  }
+
+  void _snack(String msg, {required bool success}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg, style: const TextStyle(fontFamily: 'Arimo')),
+      backgroundColor: success ? _teal : Colors.red.shade600,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
+  }
+
+  Future<void> _dispenseNow() async {
+    if (_dispensing) return;
+    setState(() => _dispensing = true);
+    try {
+      if (_device == null) {
+        _device = await injector<GetDevice>().call();
+      }
+      final deviceId = _device?.id;
+      if (deviceId == null || deviceId.isEmpty) {
+        throw Exception('No se encontró un dispositivo principal registrado.');
+      }
+
+      await injector<EdgeService>().activateDispense(
+        deviceId: deviceId,
+        supplyType: 'General',
+      );
+
+      _snack('Dispensación iniciada con éxito en el Edge', success: true);
+      _loadData();
+    } catch (e) {
+      _snack(e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''), success: false);
+    } finally {
+      if (mounted) {
+        setState(() => _dispensing = false);
+      }
+    }
   }
 
   Future<void> _loadUserName() async {
@@ -89,37 +132,6 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
       _inventoryError =
           e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
-    }
-  }
-
-  Future<void> _dispensar() async {
-    if (_dispensarCargando) return;
-    setState(() => _dispensarCargando = true);
-    try {
-      final result = await _activateDispenser(
-          deviceId: _kDeviceId, supplyType: 'Arroz');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(result.message,
-            style: const TextStyle(fontFamily: 'Arimo')),
-        backgroundColor: result.success
-            ? const Color(0xFF16A34A)
-            : const Color(0xFFDC2626),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(
-            e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''),
-            style: const TextStyle(fontFamily: 'Arimo')),
-        backgroundColor: const Color(0xFFDC2626),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ));
-    } finally {
-      if (mounted) setState(() => _dispensarCargando = false);
     }
   }
 
@@ -277,19 +289,19 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(height: 18),
         SizedBox(width: double.infinity, height: 44,
           child: TextButton.icon(
-            onPressed: _dispensarCargando ? null : _dispensar,
+            onPressed: _dispensing ? null : _dispenseNow,
             style: TextButton.styleFrom(backgroundColor: Colors.white,
                 shape: const StadiumBorder()),
-            icon: _dispensarCargando
-                ? const SizedBox(
-                    width: 18, height: 18,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: _teal))
+            icon: _dispensing
+                ? const SizedBox(width: 18, height: 18,
+                    child: CircularProgressIndicator(color: _teal, strokeWidth: 2))
                 : const Icon(Icons.play_circle_outline_rounded,
                     color: _teal, size: 20),
-            label: const Text('Dispensar Ahora',
-                style: TextStyle(color: _teal, fontWeight: FontWeight.w700,
-                    fontFamily: 'Arimo', fontSize: 14)),
+            label: Text(
+              _dispensing ? 'Dispensando...' : 'Dispensar Ahora',
+              style: const TextStyle(color: _teal, fontWeight: FontWeight.w700,
+                  fontFamily: 'Arimo', fontSize: 14),
+            ),
           ),
         ),
       ]),

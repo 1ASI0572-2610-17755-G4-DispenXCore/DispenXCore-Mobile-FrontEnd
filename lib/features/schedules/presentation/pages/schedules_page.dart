@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../../core/di/injector.dart';
 import '../../domain/entities/schedule.dart';
 import '../../domain/usecases/schedule_usecases.dart';
+import '../../../../core/services/scheduler_service.dart';
 
 class SchedulesPage extends StatefulWidget {
   const SchedulesPage({super.key});
@@ -60,6 +61,7 @@ class _SchedulesPageState extends State<SchedulesPage> {
     });
     try {
       await _toggleSchedule(s.id);
+      injector<SchedulerService>().loadSchedules();
     } catch (e) {
       // Revert on error
       setState(() {
@@ -100,6 +102,7 @@ class _SchedulesPageState extends State<SchedulesPage> {
     try {
       await _deleteSchedule(s.id);
       setState(() => _schedules.removeWhere((x) => x.id == s.id));
+      injector<SchedulerService>().loadSchedules();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -121,7 +124,10 @@ class _SchedulesPageState extends State<SchedulesPage> {
         updateSchedule: _updateSchedule,
       ),
     );
-    if (result == true) await _load();
+    if (result == true) {
+      await _load();
+      injector<SchedulerService>().loadSchedules();
+    }
   }
 
   @override

@@ -24,6 +24,7 @@ class _SettingsPageState extends State<SettingsPage> {
   User? _user;
   bool _isLoadingUser = true;
   String? _loadError;
+  String? _edgeIp;
 
   static const _teal = Color(0xFF009688);
 
@@ -40,7 +41,10 @@ class _SettingsPageState extends State<SettingsPage> {
     // Espera al primer frame para garantizar que el widget esté montado
     // antes de comenzar cualquier operación asíncrona.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _loadUser();
+      if (mounted) {
+        _loadUser();
+        _loadEdgeIp();
+      }
     });
   }
 
@@ -57,6 +61,90 @@ class _SettingsPageState extends State<SettingsPage> {
         _loadError = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
         _isLoadingUser = false;
       });
+    }
+  }
+
+  Future<void> _loadEdgeIp() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _edgeIp = prefs.getString('edge_ip') ?? 'localhost';
+    });
+  }
+
+  Future<void> _showEdgeIpDialog() async {
+    final prefs = await SharedPreferences.getInstance();
+    final currentIp = prefs.getString('edge_ip') ?? 'localhost';
+    final ctrl = TextEditingController(text: currentIp);
+    final formKey = GlobalKey<FormState>();
+
+    if (!mounted) return;
+
+    final updated = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Configurar Servidor Edge',
+            style: TextStyle(fontFamily: 'Arimo', fontWeight: FontWeight.w700)),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Ingrese la IP local del Servidor Edge (Flask):',
+                  style: TextStyle(fontFamily: 'Arimo', fontSize: 13, color: Color(0xFF6B7280))),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: ctrl,
+                style: const TextStyle(fontFamily: 'Arimo', fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'ej. 192.168.1.100',
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _teal, width: 1.6),
+                  ),
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'La IP es requerida';
+                  final regex = RegExp(r'^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$');
+                  if (!regex.hasMatch(v.trim()) && v.trim() != 'localhost') {
+                    return 'Ingrese una dirección IP válida';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar', style: TextStyle(color: Color(0xFF6B7280), fontFamily: 'Arimo')),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(ctx, ctrl.text.trim());
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _teal,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Guardar', style: TextStyle(color: Colors.white, fontFamily: 'Arimo')),
+          ),
+        ],
+      ),
+    );
+
+    if (updated != null && mounted) {
+      await prefs.setString('edge_ip', updated);
+      setState(() {
+        _edgeIp = updated;
+      });
+      _snack('IP del Servidor Edge guardada', success: true);
     }
   }
 
@@ -167,6 +255,8 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: 10),
           _navTile(icon: Icons.wifi_rounded, title: 'Red Wi-Fi',
               subtitle: 'Conectado: DispenX_Main_5G', onTap: () {}),
+          _navTile(icon: Icons.lan_outlined, title: 'IP del Servidor Edge',
+              subtitle: _edgeIp ?? 'No configurado', onTap: _showEdgeIpDialog),
           _navTile(icon: Icons.hub_outlined, title: 'Protocolo MQTT',
               subtitle: 'Cloud Integration Active', onTap: () {}),
           const SizedBox(height: 20),

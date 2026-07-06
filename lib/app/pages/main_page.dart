@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../core/di/injector.dart';
+import '../../core/services/scheduler_service.dart';
 import '../../features/home/home_page.dart';
 import '../../features/devices/devices_page.dart';
 import '../../features/history/history_page.dart';
@@ -22,6 +24,39 @@ class _MainPageState extends State<MainPage> {
     SchedulesPage(),
     SettingsPage(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    final scheduler = injector<SchedulerService>();
+    scheduler.onTriggered = _onScheduleTriggered;
+    scheduler.start();
+  }
+
+  @override
+  void dispose() {
+    final scheduler = injector<SchedulerService>();
+    scheduler.stop();
+    scheduler.onTriggered = null;
+    super.dispose();
+  }
+
+  void _onScheduleTriggered(schedule, success, error) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? 'Horario programado "${schedule.name}" activado: Dispensación iniciada.'
+              : 'Error al activar horario programado "${schedule.name}": $error',
+          style: const TextStyle(fontFamily: 'Arimo'),
+        ),
+        backgroundColor: success ? const Color(0xFF009688) : Colors.red.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
