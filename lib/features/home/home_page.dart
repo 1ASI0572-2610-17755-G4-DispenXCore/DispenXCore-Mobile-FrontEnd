@@ -7,6 +7,9 @@ import 'package:dispenxcore_frontend/features/dispensators/domain/usecases/get_d
 import 'package:dispenxcore_frontend/features/inventario/domain/entities/grain_inventory.dart';
 import 'package:dispenxcore_frontend/features/inventario/domain/usecases/inventario_usecases.dart';
 import 'package:dispenxcore_frontend/features/users/domain/usecases/get_current_user.dart';
+import 'package:dispenxcore_frontend/features/device/domain/entities/device_info.dart';
+import 'package:dispenxcore_frontend/features/device/domain/usecases/get_device.dart';
+import 'package:dispenxcore_frontend/core/services/edge_service.dart';
 import 'package:flutter/material.dart';
 
 class HomePage extends StatefulWidget {
@@ -31,6 +34,8 @@ class _HomePageState extends State<HomePage> {
   List<GrainInventory> _grainInventory = [];
 
   bool _isLoading = true;
+  bool _dispensing = false;
+  DeviceInfo? _device;
 
   late final GetCurrentUser _getCurrentUser;
   late final GetDispensatorDetail _getDispensatorDetail;
@@ -51,12 +56,58 @@ class _HomePageState extends State<HomePage> {
     if (!mounted) return;
     setState(() { _isLoading = true; _inventoryError = null; });
 
-    // Load both in parallel; each assigns directly to fields (no inner setState)
+    // Load in parallel; each assigns directly to fields (no inner setState)
     // so a single setState at the end triggers one rebuild.
-    await Future.wait([_loadUserName(), _loadInventory(), _loadGrainInventory()]);
+    await Future.wait([_loadUserName(), _loadInventory(), _loadGrainInventory(), _loadDevice()]);
 
     if (!mounted) return;
     setState(() => _isLoading = false);
+  }
+
+  Future<void> _loadDevice() async {
+    try {
+      final device = await injector<GetDevice>().call();
+      if (!mounted) return;
+      _device = device;
+    } catch (_) {}
+  }
+
+  void _snack(String msg, {required bool success}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg, style: const TextStyle(fontFamily: 'Arimo')),
+      backgroundColor: success ? _teal : Colors.red.shade600,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
+  }
+
+  Future<void> _dispenseNow() async {
+    if (_dispensing) return;
+    setState(() => _dispensing = true);
+    try {
+      if (_device == null) {
+        _device = await injector<GetDevice>().call();
+      }
+      final deviceId = _device?.id;
+      if (deviceId == null || deviceId.isEmpty) {
+        throw Exception('No se encontró un dispositivo principal registrado.');
+      }
+
+      await injector<EdgeService>().activateDispense(
+        deviceId: deviceId,
+        supplyType: 'General',
+      );
+
+      _snack('Dispensación iniciada con éxito en el Edge', success: true);
+      _loadData();
+    } catch (e) {
+      _snack(e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''), success: false);
+    } finally {
+      if (mounted) {
+        setState(() => _dispensing = false);
+      }
+    }
   }
 
   Future<void> _loadUserName() async {
@@ -238,14 +289,19 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(height: 18),
         SizedBox(width: double.infinity, height: 44,
           child: TextButton.icon(
-            onPressed: () {},
+            onPressed: _dispensing ? null : _dispenseNow,
             style: TextButton.styleFrom(backgroundColor: Colors.white,
                 shape: const StadiumBorder()),
-            icon: const Icon(Icons.play_circle_outline_rounded,
-                color: _teal, size: 20),
-            label: const Text('Dispensar Ahora',
-                style: TextStyle(color: _teal, fontWeight: FontWeight.w700,
-                    fontFamily: 'Arimo', fontSize: 14)),
+            icon: _dispensing
+                ? const SizedBox(width: 18, height: 18,
+                    child: CircularProgressIndicator(color: _teal, strokeWidth: 2))
+                : const Icon(Icons.play_circle_outline_rounded,
+                    color: _teal, size: 20),
+            label: Text(
+              _dispensing ? 'Dispensando...' : 'Dispensar Ahora',
+              style: const TextStyle(color: _teal, fontWeight: FontWeight.w700,
+                  fontFamily: 'Arimo', fontSize: 14),
+            ),
           ),
         ),
       ]),
