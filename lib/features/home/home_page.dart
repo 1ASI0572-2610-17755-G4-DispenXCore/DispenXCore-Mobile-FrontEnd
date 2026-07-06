@@ -2,12 +2,15 @@ import 'package:dispenxcore_frontend/core/di/injector.dart';
 import 'package:dispenxcore_frontend/features/alerts/presentation/pages/alerts_page.dart';
 import 'package:dispenxcore_frontend/features/alertas_stock/presentation/pages/alertas_stock_page.dart';
 import 'package:dispenxcore_frontend/features/auth/domain/entities/user.dart';
+import 'package:dispenxcore_frontend/features/dispenser/domain/usecases/activate_dispenser.dart';
 import 'package:dispenxcore_frontend/features/dispensators/domain/entities/dispensator_detail.dart';
 import 'package:dispenxcore_frontend/features/dispensators/domain/usecases/get_dispensator_detail.dart';
 import 'package:dispenxcore_frontend/features/inventario/domain/entities/grain_inventory.dart';
 import 'package:dispenxcore_frontend/features/inventario/domain/usecases/inventario_usecases.dart';
 import 'package:dispenxcore_frontend/features/users/domain/usecases/get_current_user.dart';
 import 'package:flutter/material.dart';
+
+const String _kDeviceId = 'esp32_01';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -32,9 +35,13 @@ class _HomePageState extends State<HomePage> {
 
   bool _isLoading = true;
 
+  // Dispenser
+  bool _dispensarCargando = false;
+
   late final GetCurrentUser _getCurrentUser;
   late final GetDispensatorDetail _getDispensatorDetail;
   late final GetInventarioEstado _getInventarioEstado;
+  late final ActivateDispenser _activateDispenser;
 
   @override
   void initState() {
@@ -42,6 +49,7 @@ class _HomePageState extends State<HomePage> {
     _getCurrentUser = injector<GetCurrentUser>();
     _getDispensatorDetail = injector<GetDispensatorDetail>();
     _getInventarioEstado = injector<GetInventarioEstado>();
+    _activateDispenser = injector<ActivateDispenser>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _loadData();
     });
@@ -81,6 +89,37 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
       _inventoryError =
           e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+    }
+  }
+
+  Future<void> _dispensar() async {
+    if (_dispensarCargando) return;
+    setState(() => _dispensarCargando = true);
+    try {
+      final result = await _activateDispenser(
+          deviceId: _kDeviceId, supplyType: 'Arroz');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(result.message,
+            style: const TextStyle(fontFamily: 'Arimo')),
+        backgroundColor: result.success
+            ? const Color(0xFF16A34A)
+            : const Color(0xFFDC2626),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+            e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''),
+            style: const TextStyle(fontFamily: 'Arimo')),
+        backgroundColor: const Color(0xFFDC2626),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ));
+    } finally {
+      if (mounted) setState(() => _dispensarCargando = false);
     }
   }
 
@@ -238,11 +277,16 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(height: 18),
         SizedBox(width: double.infinity, height: 44,
           child: TextButton.icon(
-            onPressed: () {},
+            onPressed: _dispensarCargando ? null : _dispensar,
             style: TextButton.styleFrom(backgroundColor: Colors.white,
                 shape: const StadiumBorder()),
-            icon: const Icon(Icons.play_circle_outline_rounded,
-                color: _teal, size: 20),
+            icon: _dispensarCargando
+                ? const SizedBox(
+                    width: 18, height: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: _teal))
+                : const Icon(Icons.play_circle_outline_rounded,
+                    color: _teal, size: 20),
             label: const Text('Dispensar Ahora',
                 style: TextStyle(color: _teal, fontWeight: FontWeight.w700,
                     fontFamily: 'Arimo', fontSize: 14)),

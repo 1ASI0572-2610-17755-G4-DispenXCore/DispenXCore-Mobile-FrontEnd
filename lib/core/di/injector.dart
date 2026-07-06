@@ -43,6 +43,10 @@ import 'package:dispenxcore_frontend/features/schedules/data/datasources/schedul
 import 'package:dispenxcore_frontend/features/schedules/data/repositories/schedule_repository_impl.dart';
 import 'package:dispenxcore_frontend/features/schedules/domain/repositories/schedule_repository.dart';
 import 'package:dispenxcore_frontend/features/schedules/domain/usecases/schedule_usecases.dart';
+import 'package:dispenxcore_frontend/features/dispenser/data/datasources/dispenser_remote_data_source.dart';
+import 'package:dispenxcore_frontend/features/dispenser/data/repositories/dispenser_repository_impl.dart';
+import 'package:dispenxcore_frontend/features/dispenser/domain/repositories/dispenser_repository.dart';
+import 'package:dispenxcore_frontend/features/dispenser/domain/usecases/activate_dispenser.dart';
 import 'package:dispenxcore_frontend/features/users/domain/usecases/update_user.dart';
 
 // Infraestructura base
@@ -50,6 +54,11 @@ final TokenStorage tokenStorage = TokenStorageImpl();
 
 final ApiClient apiClient = ApiClient(
   baseUrl: BASE_URL,
+  tokenStorage: tokenStorage,
+);
+
+final ApiClient edgeApiClient = ApiClient(
+  baseUrl: EDGE_BASE_URL,
   tokenStorage: tokenStorage,
 );
 
@@ -118,6 +127,13 @@ final ScheduleRemoteDataSource _scheduleRemoteDataSource =
 final ScheduleRepository scheduleRepository =
     ScheduleRepositoryImpl(dataSource: _scheduleRemoteDataSource);
 
+// Dispenser
+final DispenserRemoteDataSource _dispenserRemoteDataSource =
+    DispenserRemoteDataSource(apiClient: edgeApiClient);
+
+final DispenserRepository dispenserRepository =
+    DispenserRepositoryImpl(dataSource: _dispenserRemoteDataSource);
+
 // Use cases
 final LoginUser loginUserUseCase = LoginUser(authRepository);
 final RegisterUser registerUserUseCase = RegisterUser(authRepository);
@@ -145,6 +161,7 @@ final CreateSchedule createScheduleUseCase = CreateSchedule(scheduleRepository);
 final UpdateSchedule updateScheduleUseCase = UpdateSchedule(scheduleRepository);
 final DeleteSchedule deleteScheduleUseCase = DeleteSchedule(scheduleRepository);
 final ToggleSchedule toggleScheduleUseCase = ToggleSchedule(scheduleRepository);
+final ActivateDispenser activateDispenserUseCase = ActivateDispenser(dispenserRepository);
 
 T injector<T>() {
   if (T == TokenStorage) return tokenStorage as T;
@@ -181,6 +198,8 @@ T injector<T>() {
   if (T == UpdateSchedule) return updateScheduleUseCase as T;
   if (T == DeleteSchedule) return deleteScheduleUseCase as T;
   if (T == ToggleSchedule) return toggleScheduleUseCase as T;
+  if (T == DispenserRepository) return dispenserRepository as T;
+  if (T == ActivateDispenser) return activateDispenserUseCase as T;
 
   throw Exception('Dependencia no registrada: $T');
 }
