@@ -1,3 +1,5 @@
+import 'package:dispenxcore_frontend/core/utils/date_formatter.dart';
+
 class DispensatorDetail {
   final int id;
   final int dispensatorId;
@@ -34,7 +36,7 @@ class DispensatorDetail {
   String get formattedNextDispense {
     if (nextDispenseAt.isEmpty) return '—';
     try {
-      final dt = DateTime.parse(nextDispenseAt).toLocal();
+      final dt = parseUtcToLocal(nextDispenseAt);
       final h = dt.hour.toString().padLeft(2, '0');
       final m = dt.minute.toString().padLeft(2, '0');
       return '$h:$m · ${dt.day}/${dt.month}/${dt.year}';

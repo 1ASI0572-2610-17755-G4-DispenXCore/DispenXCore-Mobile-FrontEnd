@@ -1,3 +1,5 @@
+import 'package:dispenxcore_frontend/core/utils/date_formatter.dart';
+
 class AppNotification {
   final String id;
   final String userId;
@@ -31,7 +33,7 @@ class AppNotification {
       message: json['message'] as String,
       action: json['action'] as String?,
       unread: json['unread'] as bool,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      createdAt: parseUtcToLocal(json['createdAt'] as String),
     );
   }
 }

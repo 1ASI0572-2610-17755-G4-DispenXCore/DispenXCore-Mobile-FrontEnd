@@ -1,3 +1,5 @@
+import 'package:dispenxcore_frontend/core/utils/date_formatter.dart';
+
 class AlertaStock {
   final String id;
   final String grano;
@@ -21,7 +23,7 @@ class AlertaStock {
       grano: json['grano'] as String,
       porcentajeActual: (json['porcentajeActual'] as num).toDouble(),
       umbralDisparo: (json['umbralDisparo'] as num).toDouble(),
-      fechaCreacion: DateTime.parse(json['fechaCreacion'] as String),
+      fechaCreacion: parseUtcToLocal(json['fechaCreacion'] as String),
       enviada: json['enviada'] as bool,
     );
   }

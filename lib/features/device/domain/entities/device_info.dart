@@ -1,3 +1,5 @@
+import 'package:dispenxcore_frontend/core/utils/date_formatter.dart';
+
 class DeviceInfo {
   final String id;
   final String name;
@@ -30,7 +32,7 @@ class DeviceInfo {
   String get formattedLastSeen {
     if (lastSeen.isEmpty) return '—';
     try {
-      final dt = DateTime.parse(lastSeen).toLocal();
+      final dt = parseUtcToLocal(lastSeen);
       final h = dt.hour.toString().padLeft(2, '0');
       final m = dt.minute.toString().padLeft(2, '0');
       return '${dt.day}/${dt.month}/${dt.year} $h:$m';

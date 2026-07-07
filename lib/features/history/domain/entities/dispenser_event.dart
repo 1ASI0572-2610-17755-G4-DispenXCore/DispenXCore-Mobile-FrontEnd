@@ -1,3 +1,5 @@
+import 'package:dispenxcore_frontend/core/utils/date_formatter.dart';
+
 class DispenserEvent {
   final int id;
   final int dispensatorId;
@@ -25,7 +27,7 @@ class DispenserEvent {
       trigger: json['trigger'] as int,
       supplyType: json['supplyType'] as int,
       amountDispensed: json['amountDispensed'] as int,
-      dispensedAt: DateTime.parse(json['dispensedAt'] as String),
+      dispensedAt: parseUtcToLocal(json['dispensedAt'] as String),
     );
   }
 }
